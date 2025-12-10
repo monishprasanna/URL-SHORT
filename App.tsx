@@ -88,9 +88,11 @@ const App: React.FC = () => {
       try {
         await navigator.clipboard.writeText(shortLink);
         setCopiedId('new');
-        setTimeout(() => setCopiedId(null), 2000);
+        // Reset after animation
+        setTimeout(() => setCopiedId(null), 2500);
       } catch (err) {
         console.error('Failed to auto-copy', err);
+        // If auto-copy fails (browser permissions), user can still click manually
       }
     }
   };
@@ -251,10 +253,14 @@ const App: React.FC = () => {
                 </div>
                 <button
                   onClick={() => handleCopy(`${domain}/${createdUrl.short_code}`, 'new')}
-                  className="w-full md:w-auto px-6 py-2 bg-emerald-500 text-dark-950 font-bold rounded-lg hover:bg-emerald-400 transition-colors flex items-center justify-center gap-2"
+                  className={`w-full md:w-auto px-6 py-2 rounded-lg font-bold transition-all duration-300 flex items-center justify-center gap-2
+                    ${copiedId === 'new' 
+                      ? 'bg-emerald-400 text-dark-950 scale-105 shadow-lg shadow-emerald-500/50 animate-pop' 
+                      : 'bg-emerald-500 text-dark-950 hover:bg-emerald-400'}
+                  `}
                 >
                   {copiedId === 'new' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  {copiedId === 'new' ? 'Copied' : 'Copy'}
+                  {copiedId === 'new' ? 'Copied!' : 'Copy'}
                 </button>
               </div>
             </div>
@@ -298,7 +304,7 @@ const App: React.FC = () => {
                        onClick={() => handleCopy(`${domain}/${url.short_code}`, url.id)}
                        className={`flex-1 md:flex-none px-4 py-2 rounded-lg border transition-all flex items-center justify-center gap-2 text-sm font-medium
                          ${copiedId === url.id 
-                           ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' 
+                           ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 animate-pop' 
                            : 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-300'}
                        `}
                     >

@@ -44,7 +44,7 @@ const App: React.FC = () => {
 
   const handleRedirect = async (code: string) => {
     // setIsRedirecting(true); // Already set by initial state, but safe to keep if called elsewhere
-    const { data, error } = await getUrlByCode(code);
+    const { data } = await getUrlByCode(code);
 
     if (data) {
       // Track click

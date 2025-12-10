@@ -31,6 +31,8 @@ const App: React.FC = () => {
   const [createdUrl, setCreatedUrl] = useState<ShortenedUrl | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  const domain = window.location.host;
+
   // Initialize Routing or Load History
   useEffect(() => {
     const path = window.location.pathname.substring(1).replace(/\/$/, '');
@@ -80,6 +82,16 @@ const App: React.FC = () => {
       setCustomAlias(''); // Clear alias input
       setLongUrl(''); // Clear main input
       loadHistory(); // Refresh list
+
+      // Auto-copy to clipboard
+      const shortLink = `${domain}/${data.short_code}`;
+      try {
+        await navigator.clipboard.writeText(shortLink);
+        setCopiedId('new');
+        setTimeout(() => setCopiedId(null), 2000);
+      } catch (err) {
+        console.error('Failed to auto-copy', err);
+      }
     }
   };
 
@@ -88,8 +100,6 @@ const App: React.FC = () => {
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
-
-  const domain = window.location.host;
 
   // Render Redirect Loading Screen
   if (isRedirecting) {

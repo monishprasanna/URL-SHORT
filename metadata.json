@@ -1,0 +1,5 @@
+{
+  "name": "NebulaLink",
+  "description": "A futuristic, AI-powered URL shortener featuring Supabase integration for persistence and Gemini 2.5 for smart alias generation.",
+  "requestFramePermissions": []
+}

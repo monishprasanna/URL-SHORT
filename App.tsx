@@ -15,8 +15,11 @@ import {
 } from 'lucide-react';
 
 const App: React.FC = () => {
-  // Routing State
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  // Routing State - Initialize based on current path to prevent flash of content
+  const [isRedirecting, setIsRedirecting] = useState(() => {
+    const path = window.location.pathname.substring(1).replace(/\/$/, ''); // Remove leading slash and trailing slash
+    return path.length > 0;
+  });
   const [redirectError, setRedirectError] = useState<string | null>(null);
 
   // App State
@@ -28,10 +31,11 @@ const App: React.FC = () => {
   const [createdUrl, setCreatedUrl] = useState<ShortenedUrl | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Initialize Routing
+  // Initialize Routing or Load History
   useEffect(() => {
-    const path = window.location.pathname.substring(1); // Remove leading slash
-    if (path && path.length > 0) {
+    const path = window.location.pathname.substring(1).replace(/\/$/, '');
+    
+    if (path.length > 0) {
       handleRedirect(path);
     } else {
       loadHistory();
@@ -39,7 +43,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleRedirect = async (code: string) => {
-    setIsRedirecting(true);
+    // setIsRedirecting(true); // Already set by initial state, but safe to keep if called elsewhere
     const { data, error } = await getUrlByCode(code);
 
     if (data) {
@@ -111,7 +115,12 @@ const App: React.FC = () => {
           <h2 className="text-2xl font-bold mb-2">Oops! Link Error</h2>
           <p className="text-slate-400 mb-6">{redirectError}</p>
           <button 
-            onClick={() => { setRedirectError(null); window.history.pushState({}, "", "/"); }}
+            onClick={() => { 
+              setRedirectError(null); 
+              setIsRedirecting(false);
+              window.history.pushState({}, "", "/"); 
+              loadHistory();
+            }}
             className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-medium transition-colors"
           >
             Go to Homepage

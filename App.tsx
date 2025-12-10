@@ -1,70 +1,61 @@
 import React, { useState, useEffect } from 'react';
-import { createShortUrl, getRecentUrls } from './services/urlService';
-import { generateSmartAliases } from './services/geminiService';
-import { ShortenedUrl, AliasSuggestion } from './types';
+import { createShortUrl, getRecentUrls, getUrlByCode, incrementClicks } from './services/urlService';
+import { ShortenedUrl } from './types';
 import { isSupabaseConfigured } from './supabaseClient';
 import { 
   Link2, 
-  Sparkles, 
   Copy, 
   Check, 
   ArrowRight, 
   Zap, 
   History,
   AlertCircle,
-  Database
+  Database,
+  Loader2
 } from 'lucide-react';
 
 const App: React.FC = () => {
+  // Routing State
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [redirectError, setRedirectError] = useState<string | null>(null);
+
+  // App State
   const [longUrl, setLongUrl] = useState('');
   const [customAlias, setCustomAlias] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<AliasSuggestion[]>([]);
   const [recentUrls, setRecentUrls] = useState<ShortenedUrl[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [createdUrl, setCreatedUrl] = useState<ShortenedUrl | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Fetch history on load
+  // Initialize Routing
   useEffect(() => {
-    loadHistory();
+    const path = window.location.pathname.substring(1); // Remove leading slash
+    if (path && path.length > 0) {
+      handleRedirect(path);
+    } else {
+      loadHistory();
+    }
   }, []);
+
+  const handleRedirect = async (code: string) => {
+    setIsRedirecting(true);
+    const { data, error } = await getUrlByCode(code);
+
+    if (data) {
+      // Track click
+      incrementClicks(data.id);
+      // Redirect
+      window.location.href = data.original_url;
+    } else {
+      setIsRedirecting(false);
+      setRedirectError("Link not found. It may have been deleted or never existed.");
+    }
+  };
 
   const loadHistory = async () => {
     const { data } = await getRecentUrls();
     if (data) setRecentUrls(data);
-  };
-
-  // Handle URL Input changes to trigger AI suggestions (debounced ideally, but simple here)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (longUrl && isValidUrl(longUrl) && !createdUrl) {
-        fetchAiSuggestions(longUrl);
-      }
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [longUrl, createdUrl]);
-
-  const isValidUrl = (string: string) => {
-    try {
-      new URL(string);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  };
-
-  const fetchAiSuggestions = async (url: string) => {
-    // Only fetch if we haven't already populated suggestions for this URL context
-    // or if the user explicitly clears them. 
-    // For this demo, we'll just check if suggestions are empty or strictly tied to user action.
-    if (suggestions.length > 0) return;
-
-    setIsAiLoading(true);
-    const results = await generateSmartAliases(url);
-    setSuggestions(results);
-    setIsAiLoading(false);
   };
 
   const handleShorten = async (e?: React.FormEvent) => {
@@ -82,7 +73,6 @@ const App: React.FC = () => {
       setError(serviceError);
     } else if (data) {
       setCreatedUrl(data);
-      setSuggestions([]); // Clear suggestions
       setCustomAlias(''); // Clear alias input
       setLongUrl(''); // Clear main input
       loadHistory(); // Refresh list
@@ -95,11 +85,41 @@ const App: React.FC = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const applySuggestion = (alias: string) => {
-    setCustomAlias(alias);
-  };
-
   const domain = window.location.host;
+
+  // Render Redirect Loading Screen
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen bg-dark-950 text-white flex flex-col items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4 animate-fade-in-up">
+           <div className="p-4 bg-brand-500/10 rounded-full">
+             <Loader2 className="w-12 h-12 text-brand-500 animate-spin" />
+           </div>
+           <h2 className="text-2xl font-display font-bold">Redirecting...</h2>
+           <p className="text-slate-400">Taking you to your destination</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render 404 / Error Screen for Redirects
+  if (redirectError) {
+    return (
+      <div className="min-h-screen bg-dark-950 text-white flex flex-col items-center justify-center p-4">
+        <div className="max-w-md w-full bg-dark-900/50 border border-red-500/20 rounded-2xl p-8 text-center animate-shake">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
+          <h2 className="text-2xl font-bold mb-2">Oops! Link Error</h2>
+          <p className="text-slate-400 mb-6">{redirectError}</p>
+          <button 
+            onClick={() => { setRedirectError(null); window.history.pushState({}, "", "/"); }}
+            className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-medium transition-colors"
+          >
+            Go to Homepage
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-dark-950 text-white relative overflow-hidden font-sans selection:bg-brand-500 selection:text-white">
@@ -119,13 +139,9 @@ const App: React.FC = () => {
               <Zap className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-brand-100 to-brand-300">
-              NebulaLink
+              HAS url shortner
             </h1>
           </div>
-          <p className="text-slate-400 text-lg max-w-lg mx-auto leading-relaxed">
-            Transform long, ugly links into short, powerful assets. <br/>
-            Powered by <span className="text-brand-400 font-medium">Gemini AI</span> & <span className="text-emerald-400 font-medium">Supabase</span>.
-          </p>
         </header>
 
         {/* Database Status Indicator */}
@@ -160,54 +176,20 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* AI Suggestions & Custom Alias */}
-            <div className="grid md:grid-cols-2 gap-6">
-              
-              {/* Custom Alias Input */}
-              <div className="space-y-2">
-                <label htmlFor="alias" className="text-sm font-medium text-slate-300 ml-1 flex items-center justify-between">
-                  <span>Custom Alias (Optional)</span>
-                  <span className="text-xs text-slate-500">{domain}/...</span>
-                </label>
-                <input
-                  type="text"
-                  id="alias"
-                  placeholder="my-cool-link"
-                  className="block w-full px-4 py-3 bg-dark-950/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all outline-none"
-                  value={customAlias}
-                  onChange={(e) => setCustomAlias(e.target.value)}
-                />
-              </div>
-
-              {/* AI Area */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-300 ml-1 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-brand-400" /> AI Suggestions
-                  </span>
-                  {isAiLoading && <span className="text-xs text-slate-500 animate-pulse">Thinking...</span>}
-                </div>
-                
-                <div className="min-h-[50px] p-2 bg-dark-950/30 border border-slate-800 rounded-xl flex flex-wrap gap-2 items-center">
-                   {suggestions.length === 0 && !isAiLoading && (
-                     <span className="text-xs text-slate-600 px-2 italic">Enter a URL to see magic suggestions...</span>
-                   )}
-                   {suggestions.map((s, idx) => (
-                     <button
-                        key={idx}
-                        type="button"
-                        onClick={() => applySuggestion(s.alias)}
-                        className="group relative flex items-center gap-1.5 px-3 py-1.5 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/20 hover:border-brand-500/50 rounded-lg text-sm text-brand-200 transition-all cursor-pointer"
-                        title={s.reason}
-                     >
-                        <span>{s.alias}</span>
-                        <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-dark-800 border border-slate-700 rounded-lg text-xs text-slate-300 shadow-xl pointer-events-none transition-opacity z-20">
-                          {s.reason}
-                        </div>
-                     </button>
-                   ))}
-                </div>
-              </div>
+            {/* Custom Alias Input */}
+            <div className="space-y-2">
+              <label htmlFor="alias" className="text-sm font-medium text-slate-300 ml-1 flex items-center justify-between">
+                <span>Custom Alias (Optional)</span>
+                <span className="text-xs text-slate-500">{domain}/...</span>
+              </label>
+              <input
+                type="text"
+                id="alias"
+                placeholder="my-cool-link"
+                className="block w-full px-4 py-3 bg-dark-950/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all outline-none"
+                value={customAlias}
+                onChange={(e) => setCustomAlias(e.target.value)}
+              />
             </div>
 
             {/* Error Message */}

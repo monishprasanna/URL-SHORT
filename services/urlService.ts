@@ -25,7 +25,6 @@ export const createShortUrl = async (originalUrl: string, customAlias?: string):
   }
 
   // Generate short code if not provided
-  // In a real app, we'd check for collisions in the DB loop
   const shortCode = customAlias?.trim() || Math.random().toString(36).substring(2, 8);
 
   if (isSupabaseConfigured()) {
@@ -56,7 +55,6 @@ export const createShortUrl = async (originalUrl: string, customAlias?: string):
         .single();
 
       if (error) {
-        // Handle unique constraint violation specifically
         if (error.code === '23505') {
           return { data: null, error: "This alias is already in use." };
         }
@@ -70,7 +68,6 @@ export const createShortUrl = async (originalUrl: string, customAlias?: string):
     // MOCK MODE
     await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
     
-    // Check mock collision
     if (mockStorage.some(u => u.short_code === shortCode)) {
       return { data: null, error: "Alias already taken (Mock Mode)." };
     }
@@ -84,7 +81,7 @@ export const createShortUrl = async (originalUrl: string, customAlias?: string):
       title: null
     };
 
-    mockStorage.unshift(newUrl); // Add to beginning
+    mockStorage.unshift(newUrl); 
     return { data: newUrl, error: null };
   }
 };
@@ -106,14 +103,12 @@ export const getRecentUrls = async (): Promise<ServiceResponse<ShortenedUrl[]>> 
     if (error) return { data: null, error: error.message };
     return { data: data || [], error: null };
   } else {
-    // MOCK MODE
-    // Return a copy of mock storage
     return { data: [...mockStorage], error: null };
   }
 };
 
 /**
- * Retrieves a single URL by its short code (useful for a redirect page).
+ * Retrieves a single URL by its short code.
  */
 export const getUrlByCode = async (code: string): Promise<ServiceResponse<ShortenedUrl>> => {
   if (isSupabaseConfigured()) {
@@ -131,5 +126,26 @@ export const getUrlByCode = async (code: string): Promise<ServiceResponse<Shorte
   } else {
     const found = mockStorage.find(u => u.short_code === code);
     return { data: found || null, error: found ? null : "Not found" };
+  }
+};
+
+/**
+ * Increments the click count for a specific URL.
+ */
+export const incrementClicks = async (id: string): Promise<void> => {
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    
+    // We use a simple RPC or just fetch-and-update if RPC isn't set up.
+    // For simplicity without custom SQL functions, we will read then update.
+    // Note: In high concurrency, use database function 'increment'.
+    const { data } = await supabase.from('urls').select('clicks').eq('id', id).single();
+    if (data) {
+      await supabase.from('urls').update({ clicks: (data.clicks || 0) + 1 }).eq('id', id);
+    }
+  } else {
+    const found = mockStorage.find(u => u.id === id);
+    if (found) found.clicks++;
   }
 };

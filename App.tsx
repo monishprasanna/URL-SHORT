@@ -3,21 +3,21 @@ import { createShortUrl, getRecentUrls, getUrlByCode, incrementClicks } from './
 import { ShortenedUrl } from './types';
 import { isSupabaseConfigured } from './supabaseClient';
 import { 
-  Link2, 
+  ArrowRight, 
   Copy, 
   Check, 
-  ArrowRight, 
-  Zap, 
-  History,
-  AlertCircle,
   Database,
-  Loader2
+  Loader2,
+  Terminal,
+  Clock,
+  ExternalLink,
+  Slash
 } from 'lucide-react';
 
 const App: React.FC = () => {
-  // Routing State - Initialize based on current path to prevent flash of content
+  // Routing State
   const [isRedirecting, setIsRedirecting] = useState(() => {
-    const path = window.location.pathname.substring(1).replace(/\/$/, ''); // Remove leading slash and trailing slash
+    const path = window.location.pathname.substring(1).replace(/\/$/, '');
     return path.length > 0;
   });
   const [redirectError, setRedirectError] = useState<string | null>(null);
@@ -33,7 +33,7 @@ const App: React.FC = () => {
 
   const domain = window.location.host;
 
-  // Initialize Routing or Load History
+  // Initialize
   useEffect(() => {
     const path = window.location.pathname.substring(1).replace(/\/$/, '');
     
@@ -45,17 +45,14 @@ const App: React.FC = () => {
   }, []);
 
   const handleRedirect = async (code: string) => {
-    // setIsRedirecting(true); // Already set by initial state, but safe to keep if called elsewhere
     const { data } = await getUrlByCode(code);
 
     if (data) {
-      // Track click
       incrementClicks(data.id);
-      // Redirect
       window.location.href = data.original_url;
     } else {
       setIsRedirecting(false);
-      setRedirectError("Link not found. It may have been deleted or never existed.");
+      setRedirectError("LINK_NOT_FOUND");
     }
   };
 
@@ -79,20 +76,18 @@ const App: React.FC = () => {
       setError(serviceError);
     } else if (data) {
       setCreatedUrl(data);
-      setCustomAlias(''); // Clear alias input
-      setLongUrl(''); // Clear main input
-      loadHistory(); // Refresh list
+      setCustomAlias('');
+      setLongUrl('');
+      loadHistory();
 
-      // Auto-copy to clipboard
+      // Auto-copy
       const shortLink = `${domain}/${data.short_code}`;
       try {
         await navigator.clipboard.writeText(shortLink);
         setCopiedId('new');
-        // Reset after animation
         setTimeout(() => setCopiedId(null), 2500);
       } catch (err) {
         console.error('Failed to auto-copy', err);
-        // If auto-copy fails (browser permissions), user can still click manually
       }
     }
   };
@@ -103,29 +98,23 @@ const App: React.FC = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Render Redirect Loading Screen
+  // Redirecting Screen (Minimalist)
   if (isRedirecting) {
     return (
-      <div className="min-h-screen bg-dark-950 text-white flex flex-col items-center justify-center p-4">
-        <div className="flex flex-col items-center gap-4 animate-fade-in-up">
-           <div className="p-4 bg-brand-500/10 rounded-full">
-             <Loader2 className="w-12 h-12 text-brand-500 animate-spin" />
-           </div>
-           <h2 className="text-2xl font-display font-bold">Redirecting...</h2>
-           <p className="text-slate-400">Taking you to your destination</p>
-        </div>
+      <div className="min-h-screen bg-ink-950 flex flex-col items-center justify-center p-6">
+        <Loader2 className="w-8 h-8 text-white animate-spin mb-6" />
+        <h2 className="text-xl font-mono tracking-wider text-ink-200">INITIALIZING REDIRECT</h2>
       </div>
     );
   }
 
-  // Render 404 / Error Screen for Redirects
+  // Error Screen (Minimalist)
   if (redirectError) {
     return (
-      <div className="min-h-screen bg-dark-950 text-white flex flex-col items-center justify-center p-4">
-        <div className="max-w-md w-full bg-dark-900/50 border border-red-500/20 rounded-2xl p-8 text-center animate-shake">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
-          <h2 className="text-2xl font-bold mb-2">Oops! Link Error</h2>
-          <p className="text-slate-400 mb-6">{redirectError}</p>
+      <div className="min-h-screen bg-ink-950 flex flex-col items-center justify-center p-6 text-center">
+        <div className="border border-ink-800 bg-ink-900 p-8 max-w-md w-full">
+          <h2 className="text-4xl font-display font-bold text-white mb-4">404</h2>
+          <p className="font-mono text-ink-400 mb-8 border-b border-ink-800 pb-4">ERROR: DESTINATION_UNKNOWN</p>
           <button 
             onClick={() => { 
               setRedirectError(null); 
@@ -133,9 +122,9 @@ const App: React.FC = () => {
               window.history.pushState({}, "", "/"); 
               loadHistory();
             }}
-            className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-medium transition-colors"
+            className="w-full py-3 bg-white text-black font-mono font-bold hover:bg-ink-200 transition-colors"
           >
-            Go to Homepage
+            RETURN_HOME
           </button>
         </div>
       </div>
@@ -143,189 +132,178 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-dark-950 text-white relative overflow-hidden font-sans selection:bg-brand-500 selection:text-white">
+    <div className="min-h-screen bg-ink-950 text-ink-200 font-sans selection:bg-white selection:text-black">
       
-      {/* Background Ambience */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-brand-600/10 blur-[120px] animate-pulse-slow" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-600/10 blur-[120px] animate-pulse-slow delay-1000" />
-      </div>
+      {/* Aesthetic Grid Background */}
+      <div className="fixed inset-0 bg-grid pointer-events-none z-0" />
 
-      <div className="relative z-10 container mx-auto px-4 py-12 max-w-4xl flex flex-col items-center">
+      <div className="relative z-10 max-w-screen-xl mx-auto px-6 py-12 md:py-24">
         
-        {/* Header */}
-        <header className="mb-12 text-center animate-fade-in-down">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="p-3 bg-gradient-to-br from-brand-400 to-indigo-600 rounded-xl shadow-lg shadow-brand-500/20">
-              <Zap className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-brand-100 to-brand-300">
-              HAS url shortner
-            </h1>
+        {/* Navbar / Header */}
+        <nav className="flex justify-between items-center mb-24 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-white"></div>
+            <h1 className="text-lg font-bold font-display tracking-tight text-white">HAS_URL</h1>
           </div>
-        </header>
-
-        {/* Database Status Indicator */}
-        {!isSupabaseConfigured() && (
-          <div className="mb-8 flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-200 text-sm animate-fade-in">
-            <Database className="w-4 h-4" />
-            <span>Running in Mock Mode (No Database Connected)</span>
-          </div>
-        )}
-
-        {/* Main Card */}
-        <div className="w-full bg-dark-900/50 backdrop-blur-xl border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl shadow-black/50 animate-fade-in-up">
-          
-          <form onSubmit={handleShorten} className="flex flex-col gap-6">
-            
-            {/* URL Input */}
-            <div className="space-y-2">
-              <label htmlFor="url" className="text-sm font-medium text-slate-300 ml-1">Original URL</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Link2 className="h-5 w-5 text-slate-500 group-focus-within:text-brand-400 transition-colors" />
-                </div>
-                <input
-                  type="url"
-                  id="url"
-                  required
-                  placeholder="https://example.com/very/long/url/that/needs/shortening"
-                  className="block w-full pl-12 pr-4 py-4 bg-dark-950/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all outline-none"
-                  value={longUrl}
-                  onChange={(e) => setLongUrl(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Custom Alias Input */}
-            <div className="space-y-2">
-              <label htmlFor="alias" className="text-sm font-medium text-slate-300 ml-1 flex items-center justify-between">
-                <span>Custom Alias (Optional)</span>
-                <span className="text-xs text-slate-500">{domain}/...</span>
-              </label>
-              <input
-                type="text"
-                id="alias"
-                placeholder="my-cool-link"
-                className="block w-full px-4 py-3 bg-dark-950/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all outline-none"
-                value={customAlias}
-                onChange={(e) => setCustomAlias(e.target.value)}
-              />
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-200 animate-shake">
-                <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                <span className="text-sm">{error}</span>
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading || !longUrl}
-              className="relative w-full py-4 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 disabled:opacity-70 disabled:cursor-not-allowed rounded-xl text-white font-semibold text-lg shadow-lg shadow-brand-500/25 transition-all active:scale-[0.99] overflow-hidden group"
-            >
-              <span className="relative z-10 flex items-center justify-center gap-2">
-                {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Shortening...
-                  </>
-                ) : (
-                  <>Create Link <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></>
-                )}
-              </span>
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
-            </button>
-          </form>
-
-          {/* Success Result */}
-          {createdUrl && (
-            <div className="mt-8 p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl animate-fade-in">
-              <h3 className="text-emerald-400 font-medium mb-4 flex items-center gap-2">
-                <Check className="w-5 h-5" /> Successfully Shortened!
-              </h3>
-              <div className="flex flex-col md:flex-row gap-4 items-center bg-dark-950/50 p-2 rounded-xl border border-emerald-500/10">
-                <div className="flex-1 px-3 truncate font-mono text-emerald-100/90 w-full text-center md:text-left">
-                  {domain}/{createdUrl.short_code}
-                </div>
-                <button
-                  onClick={() => handleCopy(`${domain}/${createdUrl.short_code}`, 'new')}
-                  className={`w-full md:w-auto px-6 py-2 rounded-lg font-bold transition-all duration-300 flex items-center justify-center gap-2
-                    ${copiedId === 'new' 
-                      ? 'bg-emerald-400 text-dark-950 scale-105 shadow-lg shadow-emerald-500/50 animate-pop' 
-                      : 'bg-emerald-500 text-dark-950 hover:bg-emerald-400'}
-                  `}
-                >
-                  {copiedId === 'new' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  {copiedId === 'new' ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
+          {!isSupabaseConfigured() && (
+            <div className="flex items-center gap-2 text-xs font-mono text-ink-400 border border-ink-800 px-3 py-1">
+              <Database className="w-3 h-3" />
+              <span>MOCK_MODE</span>
             </div>
           )}
-        </div>
+        </nav>
 
-        {/* History Section */}
-        <div className="w-full max-w-4xl mt-16 animate-fade-in-up delay-200">
-          <h2 className="text-xl font-semibold text-slate-200 mb-6 flex items-center gap-2">
-            <History className="w-5 h-5 text-brand-400" /> Recent Links
-          </h2>
+        <main className="grid lg:grid-cols-12 gap-16">
           
-          <div className="grid gap-4">
-            {recentUrls.length === 0 ? (
-              <div className="text-center py-12 text-slate-600 bg-dark-900/30 rounded-2xl border border-white/5 border-dashed">
-                No links created yet. Start by pasting a URL above!
-              </div>
-            ) : (
-              recentUrls.map((url) => (
-                <div 
-                  key={url.id} 
-                  className="group bg-dark-900/40 hover:bg-dark-800/60 border border-white/5 hover:border-brand-500/30 rounded-xl p-4 transition-all duration-300 flex flex-col md:flex-row items-center justify-between gap-4"
-                >
-                  <div className="flex-1 min-w-0 text-center md:text-left">
-                    <div className="flex items-center justify-center md:justify-start gap-2 text-brand-300 font-mono font-medium text-lg mb-1">
-                      <span>/{url.short_code}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 border border-slate-700">
-                        {new Date(url.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div className="text-slate-500 text-sm truncate max-w-md" title={url.original_url}>
-                      {url.original_url}
-                    </div>
+          {/* Left Column: Input */}
+          <div className="lg:col-span-7 flex flex-col justify-center animate-slide-up">
+            <h1 className="text-5xl md:text-7xl font-display font-bold text-white leading-[0.9] tracking-tighter mb-8">
+              MAKE IT <br/>
+              <span className="text-ink-400">SHORT.</span>
+            </h1>
+            
+            <form onSubmit={handleShorten} className="space-y-6 max-w-xl">
+              <div className="space-y-4">
+                <div className="relative group">
+                   <input
+                    type="url"
+                    required
+                    placeholder="Paste long URL here..."
+                    className="w-full bg-transparent border-b-2 border-ink-800 text-white text-xl md:text-2xl py-4 placeholder-ink-700 focus:outline-none focus:border-white transition-colors font-sans rounded-none"
+                    value={longUrl}
+                    onChange={(e) => setLongUrl(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center text-ink-400 font-mono text-sm shrink-0">
+                    <Slash className="w-4 h-4" />
+                    <span className="ml-1">alias</span>
                   </div>
-                  
-                  <div className="flex items-center gap-3 w-full md:w-auto">
-                    <div className="hidden md:flex flex-col items-end mr-2">
-                      <span className="text-xs text-slate-500 font-medium">{url.clicks || 0} clicks</span>
+                  <input
+                    type="text"
+                    placeholder="custom-name (optional)"
+                    className="w-full bg-transparent border-b border-ink-800 text-white py-2 placeholder-ink-700 focus:outline-none focus:border-white transition-colors font-mono text-sm"
+                    value={customAlias}
+                    onChange={(e) => setCustomAlias(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="text-red-500 font-mono text-xs border-l-2 border-red-500 pl-3 py-1">
+                  ERROR: {error}
+                </div>
+              )}
+
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={isLoading || !longUrl}
+                  className="group relative inline-flex items-center gap-3 px-8 py-4 bg-white text-black font-display font-bold text-lg hover:bg-ink-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all w-full md:w-auto justify-between md:justify-start"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      PROCESSING
+                    </span>
+                  ) : (
+                    <>
+                      <span>SHORTEN URL</span>
+                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* Result Display (Minimalist Ticket) */}
+            {createdUrl && (
+              <div className="mt-12 border border-ink-800 bg-ink-900/50 p-6 animate-fade-in relative overflow-hidden group">
+                 {/* Decorative Corner */}
+                 <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-white"></div>
+                 
+                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="space-y-1 overflow-hidden">
+                      <p className="text-xs font-mono text-ink-400 uppercase tracking-widest">Generated Link</p>
+                      <p className="text-xl md:text-2xl font-mono text-white truncate">{domain}/{createdUrl.short_code}</p>
                     </div>
                     <button
-                       onClick={() => handleCopy(`${domain}/${url.short_code}`, url.id)}
-                       className={`flex-1 md:flex-none px-4 py-2 rounded-lg border transition-all flex items-center justify-center gap-2 text-sm font-medium
-                         ${copiedId === url.id 
-                           ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 animate-pop' 
-                           : 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-300'}
-                       `}
+                      onClick={() => handleCopy(`${domain}/${createdUrl.short_code}`, 'new')}
+                      className={`shrink-0 px-6 py-3 font-bold font-mono text-sm border transition-all flex items-center gap-2
+                        ${copiedId === 'new' 
+                          ? 'bg-white text-black border-white animate-pop' 
+                          : 'bg-transparent text-white border-ink-700 hover:border-white'}
+                      `}
                     >
-                      {copiedId === url.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      {copiedId === url.id ? 'Copied' : 'Copy'}
+                      {copiedId === 'new' ? 'COPIED' : 'COPY'}
+                      {copiedId === 'new' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     </button>
-                    <a 
-                      href={url.original_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 text-slate-400 hover:text-white transition-colors"
-                      title="Visit Original"
-                    >
-                      <ArrowRight className="w-4 h-4" />
-                    </a>
-                  </div>
-                </div>
-              ))
+                 </div>
+              </div>
             )}
           </div>
-        </div>
+
+          {/* Right Column: History */}
+          <div className="lg:col-span-5 mt-16 lg:mt-0 animate-slide-up" style={{animationDelay: '0.1s'}}>
+            <div className="flex items-center gap-3 mb-8 border-b border-ink-800 pb-4">
+              <Terminal className="w-5 h-5 text-white" />
+              <h3 className="font-mono text-sm font-bold tracking-wider text-white">SYSTEM_LOG</h3>
+            </div>
+
+            <div className="space-y-0">
+              {recentUrls.length === 0 ? (
+                <div className="font-mono text-sm text-ink-700 py-4">
+                  > Awaiting input...
+                </div>
+              ) : (
+                recentUrls.map((url) => (
+                  <div 
+                    key={url.id} 
+                    className="group border-b border-ink-900 py-4 hover:bg-ink-900/30 transition-colors flex items-start justify-between gap-4"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="font-mono text-white text-lg">/{url.short_code}</span>
+                        <span className="text-[10px] font-mono text-ink-400 border border-ink-800 px-1">
+                          {url.clicks} HITS
+                        </span>
+                      </div>
+                      <div className="text-ink-400 text-xs truncate max-w-[200px] font-sans">
+                        {url.original_url}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleCopy(`${domain}/${url.short_code}`, url.id)}
+                        className={`p-2 hover:bg-white hover:text-black transition-colors ${copiedId === url.id ? 'text-white' : 'text-ink-400'}`}
+                        title="Copy"
+                      >
+                        {copiedId === url.id ? <Check className="w-4 h-4 animate-pop" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                      <a 
+                        href={url.original_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 text-ink-400 hover:bg-white hover:text-black transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+        </main>
+        
+        {/* Footer */}
+        <footer className="fixed bottom-6 left-6 text-[10px] font-mono text-ink-700 flex flex-col gap-1 z-0">
+          <p>SECURE_CONNECTION: ESTABLISHED</p>
+          <p>ID: {domain}</p>
+        </footer>
 
       </div>
     </div>

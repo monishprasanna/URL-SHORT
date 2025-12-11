@@ -9,7 +9,6 @@ import {
   Database,
   Loader2,
   Terminal,
-  Clock,
   ExternalLink,
   Slash
 } from 'lucide-react';
@@ -254,7 +253,7 @@ const App: React.FC = () => {
             <div className="space-y-0">
               {recentUrls.length === 0 ? (
                 <div className="font-mono text-sm text-ink-700 py-4">
-                  > Awaiting input...
+                  {'>'} Awaiting input...
                 </div>
               ) : (
                 recentUrls.map((url) => (

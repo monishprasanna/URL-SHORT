@@ -11,6 +11,7 @@ import {
   updateDoc,
   doc,
   Timestamp,
+  getDoc,
 } from 'firebase/firestore';
 
 const MOCK_DELAY = 600;
@@ -194,8 +195,14 @@ export const incrementClicks = async (id: string): Promise<void> => {
 
     try {
       const urlDoc = doc(db, COLLECTION_NAME, id);
-      const docSnap = await getDocs(query(collection(db, COLLECTION_NAME), where('__name__', '==', id)));
-      const currentClicks = docSnap.docs[0]?.data()?.clicks || 0;
+      const docSnap = await getDoc(urlDoc);
+      
+      if (!docSnap.exists()) {
+        console.warn(`Document with id ${id} does not exist`);
+        return;
+      }
+
+      const currentClicks = docSnap.data()?.clicks || 0;
       
       await updateDoc(urlDoc, {
         clicks: currentClicks + 1,

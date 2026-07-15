@@ -3,12 +3,12 @@ import { ShortenedUrl, ServiceResponse } from '../types';
 
 const MOCK_DELAY = 600;
 
-// In-memory storage for when Supabase is not connected
+// In-memory storage for when database is not connected
 let mockStorage: ShortenedUrl[] = [];
 
 /**
  * Creates a shortened URL. 
- * If Supabase is connected, it saves to DB. 
+ * If Postgres is connected, it saves to DB. 
  * Otherwise, it saves to local memory.
  */
 export const createShortUrl = async (originalUrl: string, customAlias?: string): Promise<ServiceResponse<ShortenedUrl>> => {
@@ -28,40 +28,46 @@ export const createShortUrl = async (originalUrl: string, customAlias?: string):
   const shortCode = customAlias?.trim() || Math.random().toString(36).substring(2, 8);
 
   if (isSupabaseConfigured()) {
-    const supabase = getSupabase();
-    if (!supabase) return { data: null, error: "Supabase client initialization failed" };
+    const sqlClient = getSupabase();
+    if (!sqlClient) return { data: null, error: "Database client initialization failed" };
 
     try {
       // Check for collision first if custom alias
       if (customAlias) {
-        const { data: existing } = await supabase
-          .from('urls')
-          .select('id')
-          .eq('short_code', shortCode)
-          .single();
+        const result = await sqlClient`
+          SELECT id FROM urls WHERE short_code = ${shortCode}
+        `;
         
-        if (existing) {
+        if (result.rows.length > 0) {
           return { data: null, error: "Alias already taken. Try another one." };
         }
       }
 
-      const { data, error } = await supabase
-        .from('urls')
-        .insert([{ 
-          original_url: originalUrl, 
-          short_code: shortCode 
-        }])
-        .select()
-        .single();
+      const result = await sqlClient`
+        INSERT INTO urls (original_url, short_code)
+        VALUES (${originalUrl}, ${shortCode})
+        RETURNING id, original_url, short_code, created_at, clicks, title
+      `;
 
-      if (error) {
-        if (error.code === '23505') {
-          return { data: null, error: "This alias is already in use." };
-        }
-        return { data: null, error: error.message };
+      if (result.rows.length === 0) {
+        return { data: null, error: "Failed to create shortened URL" };
       }
-      return { data: data, error: null };
+
+      const row = result.rows[0];
+      const data: ShortenedUrl = {
+        id: row.id as string,
+        original_url: row.original_url as string,
+        short_code: row.short_code as string,
+        created_at: row.created_at as string,
+        clicks: row.clicks as number,
+        title: row.title as string | null
+      };
+
+      return { data, error: null };
     } catch (err: any) {
+      if (err.message?.includes('duplicate')) {
+        return { data: null, error: "This alias is already in use." };
+      }
       return { data: null, error: err.message || "Unknown error occurred" };
     }
   } else {
@@ -91,61 +97,96 @@ export const createShortUrl = async (originalUrl: string, customAlias?: string):
  */
 export const getRecentUrls = async (): Promise<ServiceResponse<ShortenedUrl[]>> => {
   if (isSupabaseConfigured()) {
-    const supabase = getSupabase();
-    if (!supabase) return { data: [], error: "Supabase client initialization failed" };
+    const sqlClient = getSupabase();
+    if (!sqlClient) return { data: [], error: "Database client initialization failed" };
 
-    const { data, error } = await supabase
-      .from('urls')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(10);
+    try {
+      const result = await sqlClient`
+        SELECT id, original_url, short_code, created_at, clicks, title
+        FROM urls
+        ORDER BY created_at DESC
+        LIMIT 50
+      `;
 
-    if (error) return { data: null, error: error.message };
-    return { data: data || [], error: null };
+      const data: ShortenedUrl[] = result.rows.map(row => ({
+        id: row.id as string,
+        original_url: row.original_url as string,
+        short_code: row.short_code as string,
+        created_at: row.created_at as string,
+        clicks: row.clicks as number,
+        title: row.title as string | null
+      }));
+
+      return { data, error: null };
+    } catch (err: any) {
+      return { data: [], error: err.message || "Failed to fetch URLs" };
+    }
   } else {
-    return { data: [...mockStorage], error: null };
+    // MOCK MODE
+    return { data: mockStorage.slice(0, 50), error: null };
   }
 };
 
 /**
- * Retrieves a single URL by its short code.
+ * Retrieves a specific URL by its short code.
  */
 export const getUrlByCode = async (code: string): Promise<ServiceResponse<ShortenedUrl>> => {
   if (isSupabaseConfigured()) {
-    const supabase = getSupabase();
-    if (!supabase) return { data: null, error: "Supabase client initialization failed" };
+    const sqlClient = getSupabase();
+    if (!sqlClient) return { data: null, error: "Database client initialization failed" };
 
-    const { data, error } = await supabase
-      .from('urls')
-      .select('*')
-      .eq('short_code', code)
-      .single();
-    
-    if (error) return { data: null, error: error.message };
-    return { data: data, error: null };
+    try {
+      const result = await sqlClient`
+        SELECT id, original_url, short_code, created_at, clicks, title
+        FROM urls
+        WHERE short_code = ${code}
+      `;
+
+      if (result.rows.length === 0) {
+        return { data: null, error: "URL not found" };
+      }
+
+      const row = result.rows[0];
+      const data: ShortenedUrl = {
+        id: row.id as string,
+        original_url: row.original_url as string,
+        short_code: row.short_code as string,
+        created_at: row.created_at as string,
+        clicks: row.clicks as number,
+        title: row.title as string | null
+      };
+
+      return { data, error: null };
+    } catch (err: any) {
+      return { data: null, error: err.message || "Failed to fetch URL" };
+    }
   } else {
-    const found = mockStorage.find(u => u.short_code === code);
-    return { data: found || null, error: found ? null : "Not found" };
+    // MOCK MODE
+    const url = mockStorage.find(u => u.short_code === code);
+    return url ? { data: url, error: null } : { data: null, error: "URL not found (Mock Mode)" };
   }
 };
 
 /**
- * Increments the click count for a specific URL.
+ * Increments the click count for a URL.
  */
 export const incrementClicks = async (id: string): Promise<void> => {
   if (isSupabaseConfigured()) {
-    const supabase = getSupabase();
-    if (!supabase) return;
-    
-    // We use a simple RPC or just fetch-and-update if RPC isn't set up.
-    // For simplicity without custom SQL functions, we will read then update.
-    // Note: In high concurrency, use database function 'increment'.
-    const { data } = await supabase.from('urls').select('clicks').eq('id', id).single();
-    if (data) {
-      await supabase.from('urls').update({ clicks: (data.clicks || 0) + 1 }).eq('id', id);
+    const sqlClient = getSupabase();
+    if (!sqlClient) return;
+
+    try {
+      await sqlClient`
+        UPDATE urls
+        SET clicks = clicks + 1
+        WHERE id = ${id}
+      `;
+    } catch (err) {
+      console.error("Failed to increment clicks:", err);
     }
   } else {
-    const found = mockStorage.find(u => u.id === id);
-    if (found) found.clicks++;
+    // MOCK MODE
+    const url = mockStorage.find(u => u.id === id);
+    if (url) url.clicks++;
   }
 };

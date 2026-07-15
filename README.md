@@ -5,7 +5,7 @@ A high-performance, hyper-aesthetic URL shortener built with modern web technolo
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![React](https://img.shields.io/badge/React-18-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![Supabase](https://img.shields.io/badge/Supabase-Database-green)
+![Firebase](https://img.shields.io/badge/Firebase-Database-orange)
 ![Gemini](https://img.shields.io/badge/AI-Gemini%202.5-purple)
 
 ## 🌟 The Vision
@@ -15,7 +15,7 @@ HAS_URL was conceptualized to break away from cluttered, utility-focused tools. 
 ## 🚀 Features
 
 *   **Monochrome Aesthetic:** A strict black-and-white design language using Tailwind CSS, featuring subtle grid backgrounds and crisp typography (Inter, Space Grotesk, JetBrains Mono).
-*   **Persistent Storage:** Integrates with **Supabase** for robust data persistence, click tracking, and history management.
+*   **Persistent Storage:** Integrates with **Firebase Firestore** for robust data persistence, click tracking, and history management.
 *   **AI-Powered Smart Aliases:** Utilizes the **Google GenAI SDK (Gemini 2.5 Flash)** to analyze URLs and suggest creative, context-aware short codes automatically.
 *   **Instant Redirection:** Optimized routing logic for minimal latency during URL resolution.
 *   **Mock Mode:** Automatically degrades to an in-memory storage system if database credentials are not detected, allowing for instant testing.
@@ -23,10 +23,10 @@ HAS_URL was conceptualized to break away from cluttered, utility-focused tools. 
 
 ## 🛠️ Tech Stack
 
-*   **Frontend Framework:** React 19 (via Vite)
+*   **Frontend Framework:** React 18 (via Vite)
 *   **Language:** TypeScript
 *   **Styling:** Tailwind CSS
-*   **Backend/Database:** Supabase (PostgreSQL)
+*   **Backend/Database:** Firebase Firestore
 *   **Artificial Intelligence:** Google Gemini API (`@google/genai`)
 *   **Icons:** Lucide React
 
@@ -35,7 +35,7 @@ HAS_URL was conceptualized to break away from cluttered, utility-focused tools. 
 1.  **Clone the repository**
     ```bash
     git clone https://github.com/monishprasanna/URL-SHORT.git
-    cd has-url
+    cd URL-SHORT
     ```
 
 2.  **Install dependencies**
@@ -44,26 +44,48 @@ HAS_URL was conceptualized to break away from cluttered, utility-focused tools. 
     ```
 
 3.  **Environment Configuration**
-    Create a `.env` file in the root directory. You will need keys from [Supabase](https://supabase.com) and [Google AI Studio](https://aistudio.google.com).
+    Create a `.env` file in the root directory. You will need keys from [Firebase Console](https://console.firebase.google.com) and [Google AI Studio](https://aistudio.google.com).
 
     ```env
-    VITE_SUPABASE_URL=your_supabase_project_url
-    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+    VITE_FIREBASE_API_KEY=your_api_key
+    VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+    VITE_FIREBASE_PROJECT_ID=your_project_id
+    VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+    VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+    VITE_FIREBASE_APP_ID=your_app_id
     API_KEY=your_google_gemini_api_key
     ```
 
-4.  **Database Setup (Supabase)**
-    Run the following SQL in your Supabase SQL Editor:
+4.  **Firestore Setup**
+    - Go to [Firebase Console](https://console.firebase.google.com)
+    - Create a new project or use existing one
+    - Enable Cloud Firestore
+    - Create a collection named `urls`
+    - Set security rules (for demo, allow public read/write; for production, add authentication)
 
-    ```sql
-    create table urls (
-      id uuid default gen_random_uuid() primary key,
-      original_url text not null,
-      short_code text unique not null,
-      created_at timestamptz default now(),
-      clicks int default 0,
-      title text
-    );
+    **Firestore Collection Schema:**
+    ```
+    Collection: urls
+    
+    Document Fields:
+      - id: string (UUID)
+      - original_url: string
+      - short_code: string (create index for queries)
+      - created_at: timestamp
+      - clicks: number
+      - title: string (nullable)
+    ```
+
+    **Recommended Security Rules (Demo):**
+    ```javascript
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+        match /urls/{document=**} {
+          allow read, write: if request.auth == null;
+        }
+      }
+    }
     ```
 
 5.  **Run Development Server**
@@ -73,8 +95,20 @@ HAS_URL was conceptualized to break away from cluttered, utility-focused tools. 
 
 ## 🏗️ Architecture Note
 
-The application uses a service-layer pattern (`urlService.ts`, `geminiService.ts`) to separate logic from the UI. This ensures that the application can switch between "Mock Mode" and "Production Mode" seamlessly without breaking the user interface.
+- **Frontend:** React + TypeScript with Vite for instant HMR and optimized builds.
+- **Backend:** Firebase Firestore for real-time data sync and scalability.
+- **Service Layer:** `services/urlService.ts` handles all database operations with fallback to mock mode.
+- **Components:** Minimal, single-file React component structure for simplicity.
 
-## 🤝 Contribution
+## 🔄 Migration from Supabase
 
-This project was architected by Monish Prasanna S with implementation assistance from AI. Pull requests are welcome.
+This project was migrated from Supabase to Firebase. The main changes:
+
+- Replaced `@supabase/supabase-js` with `firebase` SDK
+- Updated `firebaseClient.ts` for Firebase initialization
+- Refactored `services/urlService.ts` to use Firestore operations
+- Updated environment variables to Firebase config
+
+## 📝 License
+
+MIT

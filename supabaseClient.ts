@@ -1,34 +1,37 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from './types';
+import { sql } from '@vercel/postgres';
 
-// NOTE: In a real environment, these would come from process.env
-// We check if they exist. If not, we will use a "Mock Mode" flag in our service.
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
-
-let supabase: SupabaseClient<Database> | null = null;
-
+// Check if Postgres is configured
 export const isSupabaseConfigured = (): boolean => {
-  return !!supabaseUrl && !!supabaseKey && supabaseUrl !== '' && supabaseKey !== '';
+  return !!process.env.POSTGRES_URL || !!process.env.DATABASE_URL;
 };
 
-if (isSupabaseConfigured()) {
-  supabase = createClient<Database>(supabaseUrl, supabaseKey);
-}
+export const getSupabase = () => {
+  // Return sql object for direct queries
+  return sql;
+};
 
-export const getSupabase = () => supabase;
-
-// Helper to explain setup if missing
 export const getSetupInstructions = () => `
-To enable persistent storage, create a Supabase project and table:
-1. Table Name: urls
-2. Columns:
-   - id: uuid (primary key, default: gen_random_uuid())
-   - original_url: text (not null)
-   - short_code: text (unique, not null)
-   - created_at: timestamptz (default: now())
-   - clicks: int4 (default: 0)
-   - title: text (nullable)
+To enable persistent storage, use Vercel Postgres (Neon):
 
-Then set process.env.SUPABASE_URL and process.env.SUPABASE_ANON_KEY.
+1. Create a Neon database at https://console.neon.tech
+2. Get your CONNECTION STRINGS with these parameters:
+   - POSTGRES_URL (pooler) - for general queries
+   - POSTGRES_URL_NON_POOLING - for migrations
+   
+3. Run this SQL to create the urls table:
+
+CREATE TABLE urls (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  original_url TEXT NOT NULL,
+  short_code TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  clicks INT DEFAULT 0,
+  title TEXT NULL
+);
+
+4. Set environment variables:
+   - POSTGRES_URL (from Neon)
+   - Or DATABASE_URL (alternative)
+
+5. Deploy to Vercel and add the same env vars there.
 `;
